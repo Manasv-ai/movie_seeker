@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MovieSeeker</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #f0ede8;
+      --surface: #ffffff;
+      --border: #e0dbd4;
+      --text: #2c2416;
+      --muted: #9a9080;
+      --accent: #3d2e1e;
+      --bubble-user: #2c2416;
+      --bubble-bot: #ffffff;
+      --input-bg: #ffffff;
+      --grid: rgba(0,0,0,0.04);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow: hidden;
+      position: relative;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* LANDING */
+    #landing {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      transition: opacity 0.5s ease, transform 0.5s ease;
+    }
+
+    #landing.hidden {
+      opacity: 0;
+      transform: translateY(-30px);
+      pointer-events: none;
+    }
+
+    .brand { text-align: center; margin-bottom: 44px; }
+    .brand-icon { font-size: 2rem; margin-bottom: 10px; display: block; opacity: 0.75; }
+
+    .brand h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2.6rem, 6vw, 4.2rem);
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.02em;
+      line-height: 1;
+      margin-bottom: 12px;
+    }
+
+    .brand p {
+      font-family: 'Playfair Display', serif;
+      font-style: italic;
+      font-size: 0.98rem;
+      color: var(--muted);
+    }
+
+    .input-box {
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      width: min(660px, 90vw);
+      padding: 20px 20px 14px;
+      box-shadow: 0 4px 40px rgba(0,0,0,0.07);
+    }
+
+    .input-box textarea {
+      width: 100%;
+      border: none;
+      outline: none;
+      background: transparent;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.97rem;
+      color: var(--text);
+      resize: none;
+      min-height: 58px;
+      max-height: 130px;
+      line-height: 1.6;
+    }
+
+    .input-box textarea::placeholder,
+    .chat-input-box textarea::placeholder { color: #b5aca0; }
+
+    .input-footer, .chat-input-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 12px;
+    }
+
+    .input-left { display: flex; gap: 8px; align-items: center; }
+
+    .icon-btn {
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem;
+      transition: all 0.15s;
+    }
+
+    .icon-btn.dark { background: var(--accent); color: #fff; }
+    .icon-btn:hover { opacity: 0.75; }
+    .icon-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    .loc-pill {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 0.77rem; color: var(--muted);
+      background: #f5f2ee; border: 1px solid var(--border);
+      border-radius: 20px; padding: 5px 12px;
+      cursor: pointer; transition: all 0.15s; white-space: nowrap;
+    }
+
+    .loc-pill:hover { border-color: var(--accent); color: var(--accent); }
+    .loc-pill.set { color: #4a7a5a; border-color: #b0d4bc; background: #f0f7f2; }
+
+    .suggestions {
+      display: flex; gap: 8px; flex-wrap: wrap;
+      justify-content: center; margin-top: 22px;
+      width: min(660px, 90vw);
+    }
+
+    .sug {
+      background: rgba(255,255,255,0.65);
+      border: 1px solid var(--border); border-radius: 20px;
+      padding: 6px 15px; font-size: 0.8rem; color: var(--muted);
+      cursor: pointer; transition: all 0.15s; backdrop-filter: blur(4px);
+    }
+
+    .sug:hover { background: #fff; color: var(--text); border-color: #c0b8b0; }
+
+    /* CHAT VIEW */
+    #chatView {
+      display: flex; flex-direction: column;
+      width: 100%; height: 100vh;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.4s ease;
+      position: relative; z-index: 5;
+    }
+
+    #chatView.visible { opacity: 1; pointer-events: all; }
+
+    .chat-header {
+      display: flex; align-items: center; justify-content: center;
+      padding: 14px 24px; gap: 10px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(240,237,232,0.92);
+      backdrop-filter: blur(12px); flex-shrink: 0;
+    }
+
+    .chat-header h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.2rem; font-weight: 600;
+    }
+
+    #messages {
+      flex: 1; overflow-y: auto;
+      padding: 28px 20px;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+
+    #messages::-webkit-scrollbar { width: 3px; }
+    #messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .msg {
+      display: flex; gap: 10px;
+      max-width: 720px; width: 100%;
+      margin: 0 auto;
+      animation: msgIn 0.3s ease;
+    }
+
+    @keyframes msgIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .msg.user { flex-direction: row-reverse; }
+
+    .av {
+      width: 28px; height: 28px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.75rem; flex-shrink: 0; margin-top: 3px;
+    }
+
+    .msg.bot .av {
+      background: var(--accent); color: #fff;
+      font-family: 'Playfair Display', serif;
+      font-style: italic; font-size: 0.82rem;
+    }
+
+    .msg.user .av { background: var(--border); color: var(--muted); }
+
+    .bub {
+      padding: 11px 15px; border-radius: 14px;
+      font-size: 0.9rem; line-height: 1.68;
+      max-width: calc(100% - 42px);
+    }
+
+    .msg.bot .bub {
+      background: var(--bubble-bot);
+      border: 1px solid var(--border);
+      border-top-left-radius: 3px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+    }
+
+    .msg.user .bub {
+      background: var(--bubble-user);
+      color: #fff; border-top-right-radius: 3px;
+    }
+
+    /* Typing dots */
+    .dots { display: flex; gap: 4px; align-items: center; padding: 3px 0; }
+    .dots span {
+      width: 6px; height: 6px; background: var(--muted);
+      border-radius: 50%; animation: bounce 1.2s infinite;
+    }
+    .dots span:nth-child(2) { animation-delay: 0.2s; }
+    .dots span:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes bounce {
+      0%,60%,100% { transform: translateY(0); opacity: 0.3; }
+      30% { transform: translateY(-5px); opacity: 1; }
+    }
+
+    /* Theatre cards */
+    .cards { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+
+    .tcard {
+      background: #faf8f5; border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 14px;
+      transition: border-color 0.15s;
+    }
+
+    .tcard:hover { border-color: #b0a898; }
+
+    .tcard-top {
+      display: flex; align-items: flex-start;
+      justify-content: space-between; gap: 8px; margin-bottom: 7px;
+    }
+
+    .tcard-name { font-size: 0.87rem; font-weight: 500; line-height: 1.3; }
+    .tcard-rank { font-size: 0.66rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; padding-top: 2px; }
+
+    .tcard-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+
+    .badge {
+      font-size: 0.74rem; padding: 2px 8px;
+      border-radius: 4px; border: 1px solid var(--border);
+      background: #fff; color: #5a5040;
+    }
+
+    .badge.p { color: #3a7050; border-color: #b8d8c4; background: #f0f7f2; }
+    .badge.d { color: #3a5a8a; border-color: #bfcfe0; background: #f0f4f8; }
+    .badge.r { color: #7a5a1a; border-color: #ddd0a0; background: #faf6ea; }
+
+    .tcard-addr { font-size: 0.73rem; color: var(--muted); }
+
+    .book-link {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-top: 14px; padding: 8px 16px;
+      background: var(--accent); color: #fff;
+      border-radius: 8px; text-decoration: none;
+      font-size: 0.82rem; font-weight: 500;
+      transition: opacity 0.15s;
+    }
+
+    .book-link:hover { opacity: 0.75; }
+
+    /* Markdown table */
+    .resp-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 0.82rem;
+    }
+
+    .resp-table th {
+      background: #f0ede8;
+      padding: 8px 10px;
+      text-align: left;
+      border-bottom: 2px solid var(--border);
+      color: var(--muted);
+      font-weight: 500;
+      text-transform: uppercase;
+      font-size: 0.68rem;
+      letter-spacing: 0.05em;
+      white-space: nowrap;
+    }
+
+    .resp-table td {
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+      line-height: 1.4;
+    }
+
+    .resp-table tr:last-child td { border-bottom: none; }
+    .resp-table tr:hover td { background: #faf8f5; }
+
+    /* Markdown list */
+    .md-list { padding-left: 18px; margin: 6px 0; }
+    .md-list li { margin-bottom: 4px; line-height: 1.6; }
+
+    /* Chat input */
+    .chat-input-wrap {
+      padding: 12px 20px 18px;
+      background: rgba(240,237,232,0.95);
+      backdrop-filter: blur(12px);
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .chat-input-box {
+      background: var(--input-bg); border: 1px solid var(--border);
+      border-radius: 14px; padding: 13px 16px 11px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.05);
+      max-width: 720px; margin: 0 auto;
+    }
+
+    .chat-input-box textarea {
+      width: 100%; border: none; outline: none;
+      background: transparent;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.93rem; color: var(--text);
+      resize: none; min-height: 38px; max-height: 100px; line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+
+<!-- LANDING -->
+<div id="landing">
+  <div class="brand">
+    <span class="brand-icon">🎬</span>
+    <h1>MovieSeeker</h1>
+    <p>The intelligent movie &amp; theatre assistant</p>
+  </div>
+
+  <div class="input-box">
+    <textarea id="landingInput" placeholder="Find theatres for Biker in Bengaluru..." rows="2"
+      onkeydown="handleLandingKey(event)" oninput="autoResize(this)"></textarea>
+    <div class="input-footer">
+      <div class="input-left">
+        <button class="icon-btn dark" onclick="submitLanding()" title="Send">➤</button>
+        <div class="loc-pill" id="locPill" onclick="detectLocation()">
+          📍 <span id="locText">Detect location</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="suggestions">
+    <div class="sug" onclick="fillLanding('Find theatres for Biker in Bengaluru')">🎬 Biker in Bengaluru</div>
+    <div class="sug" onclick="fillLanding('Theatres for Pushpa 2 in Chennai')">🔥 Pushpa 2 in Chennai</div>
+    <div class="sug" onclick="fillLanding('Top theatres in Bangalore')">🏛️ Top theatres in Bangalore</div>
+    <div class="sug" onclick="fillLanding('What movies are playing in Bengaluru?')">🎥 Now playing</div>
+  </div>
+</div>
+
+<!-- CHAT VIEW -->
+<div id="chatView">
+  <div class="chat-header">
+    <span>🎬</span><h2>MovieSeeker</h2>
+  </div>
+  <div id="messages"></div>
+  <div class="chat-input-wrap">
+    <div class="chat-input-box">
+      <textarea id="chatInput" placeholder="Ask about any movie or theatre..." rows="1"
+        onkeydown="handleChatKey(event)" oninput="autoResize(this)"></textarea>
+      <div class="chat-input-footer">
+        <div class="input-left">
+          <button class="icon-btn dark" id="chatSendBtn" onclick="sendChat()">➤</button>
+          <div class="loc-pill" id="locPill2" onclick="detectLocation()">
+            📍 <span id="locText2">Detect location</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let userLat = null, userLng = null;
+  let isWaiting = false;
+
+  window.onload = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(pos => {
+        userLat = pos.coords.latitude.toFixed(4);
+        userLng = pos.coords.longitude.toFixed(4);
+        setLocUI();
+      });
+    }
+  };
+
+  function setLocUI() {
+    const txt = `${userLat}, ${userLng}`;
+    document.getElementById("locText").textContent = txt;
+    document.getElementById("locText2").textContent = txt;
+    document.getElementById("locPill").classList.add("set");
+    document.getElementById("locPill2").classList.add("set");
+  }
+
+  function detectLocation() {
+    document.getElementById("locText").textContent = "Detecting...";
+    navigator.geolocation.getCurrentPosition(pos => {
+      userLat = pos.coords.latitude.toFixed(4);
+      userLng = pos.coords.longitude.toFixed(4);
+      setLocUI();
+    }, () => {
+      document.getElementById("locText").textContent = "Allow location access";
+    });
+  }
+
+  function autoResize(el) {
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 140) + "px";
+  }
+
+  function fillLanding(text) {
+    document.getElementById("landingInput").value = text;
+    document.getElementById("landingInput").focus();
+  }
+
+  function handleLandingKey(e) {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitLanding(); }
+  }
+
+  function handleChatKey(e) {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); }
+  }
+
+  function switchToChat() {
+    document.getElementById("landing").classList.add("hidden");
+    document.getElementById("chatView").classList.add("visible");
+  }
+
+  function submitLanding() {
+    const text = document.getElementById("landingInput").value.trim();
+    if (!text) return;
+    switchToChat();
+    setTimeout(() => processMessage(text), 400);
+  }
+
+  function sendChat() {
+    const input = document.getElementById("chatInput");
+    const text = input.value.trim();
+    if (!text || isWaiting) return;
+    input.value = "";
+    input.style.height = "auto";
+    processMessage(text);
+  }
+
+  // ── Markdown → HTML renderer ──
+  function markdownToHtml(text) {
+    const lines = text.split('\n');
+    let result = [];
+    let inTable = false;
+    let isFirstRow = true;
+    let tableHtml = '';
+    let inList = false;
+    let listHtml = '';
+
+    for (let i = 0; i < lines.length; i++) {
+      let line = lines[i];
+
+      // TABLE
+      if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
+        const isSeparator = line.replace(/[\|\-\:\s]/g, '') === '';
+        if (isSeparator) continue;
+
+        if (!inTable) {
+          if (inList) { listHtml += '</ul>'; result.push(listHtml); listHtml = ''; inList = false; }
+          inTable = true;
+          isFirstRow = true;
+          tableHtml = '<table class="resp-table">';
+        }
+
+        const cells = line.split('|').filter(c => c.trim() !== '');
+        if (isFirstRow) {
+          tableHtml += '<thead><tr>' + cells.map(c => `<th>${renderInline(c.trim())}</th>`).join('') + '</tr></thead><tbody>';
+          isFirstRow = false;
+        } else {
+          tableHtml += '<tr>' + cells.map(c => `<td>${renderInline(c.trim())}</td>`).join('') + '</tr>';
+        }
+        continue;
+      }
+
+      if (inTable) {
+        tableHtml += '</tbody></table>';
+        result.push(tableHtml);
+        tableHtml = '';
+        inTable = false;
+        isFirstRow = true;
+      }
+
+      // BULLET LIST
+      const bulletMatch = line.match(/^[\s]*[-*]\s+(.*)/);
+      if (bulletMatch) {
+        if (!inList) { inList = true; listHtml = '<ul class="md-list">'; }
+        listHtml += `<li>${renderInline(bulletMatch[1])}</li>`;
+        continue;
+      }
+
+      if (inList) {
+        listHtml += '</ul>';
+        result.push(listHtml);
+        listHtml = '';
+        inList = false;
+      }
+
+      // NUMBERED LIST
+      const numMatch = line.match(/^\d+\.\s+(.*)/);
+      if (numMatch) {
+        result.push(`<div style="margin:2px 0 2px 4px">${renderInline(line)}</div>`);
+        continue;
+      }
+
+      // HEADINGS
+      if (line.startsWith('### ')) { result.push(`<b style="font-size:0.95rem">${renderInline(line.slice(4))}</b>`); continue; }
+      if (line.startsWith('## '))  { result.push(`<b style="font-size:1rem">${renderInline(line.slice(3))}</b>`); continue; }
+      if (line.startsWith('# '))   { result.push(`<b style="font-size:1.05rem">${renderInline(line.slice(2))}</b>`); continue; }
+
+      // BLANK LINE
+      if (line.trim() === '') { result.push('<br>'); continue; }
+
+      // NORMAL LINE
+      result.push(`<span>${renderInline(line)}</span>`);
+    }
+
+    if (inTable)  { tableHtml += '</tbody></table>'; result.push(tableHtml); }
+    if (inList)   { listHtml  += '</ul>';            result.push(listHtml); }
+
+    return result.join('\n');
+  }
+
+  function renderInline(text) {
+    // Bold+italic
+    text = text.replace(/\*\*\*(.*?)\*\*\*/g, '<b><i>$1</i></b>');
+    // Bold
+    text = text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+    // Italic
+    text = text.replace(/\*(.*?)\*/g, '<i>$1</i>');
+    // Inline code
+    text = text.replace(/`(.*?)`/g, '<code style="background:#f0ede8;padding:1px 5px;border-radius:4px;font-size:0.85em">$1</code>');
+    return text;
+  }
+
+  // ── Message helpers ──
+  function addUser(text) {
+    append(`<div class="msg user"><div class="av">You</div><div class="bub">${esc(text)}</div></div>`);
+  }
+
+  function addBot(html) {
+    const rendered = markdownToHtml(html);
+    append(`<div class="msg bot"><div class="av">M</div><div class="bub">${rendered}</div></div>`);
+  }
+
+  function showTyping() {
+    append(`<div class="msg bot" id="typing"><div class="av">M</div><div class="bub"><div class="dots"><span></span><span></span><span></span></div></div></div>`);
+  }
+
+  function removeTyping() { document.getElementById("typing")?.remove(); }
+
+  function append(html) {
+    const m = document.getElementById("messages");
+    m.insertAdjacentHTML("beforeend", html);
+    m.scrollTop = m.scrollHeight;
+  }
+
+  function esc(t) {
+    return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ── Theatre cards renderer ──
+  function renderTheatreCards(data) {
+    let html = `Found <b>${data.theatres.length} theatres</b> showing <b>${data.movie}</b> near you 🎯<div class="cards">`;
+    data.theatres.forEach((t, i) => {
+      html += `<div class="tcard">
+        <div class="tcard-top">
+          <div class="tcard-name">${t.theatre}</div>
+          <div class="tcard-rank">#${i+1}</div>
+        </div>
+        <div class="tcard-badges">
+          <span class="badge p">₹${t.price}</span>
+          <span class="badge d">${parseFloat(t.distance).toFixed(2)} km</span>
+          <span class="badge r">⭐ ${t.rating}</span>
+        </div>
+        <div class="tcard-addr">${t.address}</div>
+      </div>`;
+    });
+    html += `</div>`;
+    if (data.link) html += `<a class="book-link" href="${data.link}" target="_blank">Book tickets →</a>`;
+    return html;
+  }
+
+  // ── Main: send everything to backend agent ──
+  async function processMessage(text) {
+    addUser(text);
+    isWaiting = true;
+    document.getElementById("chatSendBtn").disabled = true;
+    showTyping();
+
+    try {
+      const res = await fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: text,
+          lat: parseFloat(userLat || 12.9716),
+          lng: parseFloat(userLng || 77.5946)
+        })
+      });
+
+      const data = await res.json();
+      removeTyping();
+
+      // Try to parse as theatre JSON
+      try {
+        const parsed = JSON.parse(data.reply);
+        if (parsed.theatres && parsed.theatres.length > 0) {
+          // Render as theatre cards
+          const m = document.getElementById("messages");
+          m.insertAdjacentHTML("beforeend",
+            `<div class="msg bot"><div class="av">M</div><div class="bub">${renderTheatreCards(parsed)}</div></div>`
+          );
+          m.scrollTop = m.scrollHeight;
+        } else if (parsed.error) {
+          addBot(parsed.error);
+        } else {
+          addBot(data.reply);
+        }
+      } catch {
+        // Plain text / markdown from agent — render it
+        addBot(data.reply);
+      }
+
+    } catch(e) {
+      removeTyping();
+      addBot("Something went wrong. Please try again! 🔧");
+    }
+
+    isWaiting = false;
+    document.getElementById("chatSendBtn").disabled = false;
+    document.getElementById("chatInput").focus();
+  }
+</script>
+</body>
+</html>
